@@ -2,11 +2,12 @@
 
 import sys
 import argparse
+import os
 
 import h5py
 
 import numpy as np
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense, Activation, Conv2D
 
 
@@ -21,9 +22,11 @@ class GoLPredictor:
             data = self._load_train_dataset(filename)
             self._train(30, 20, *data)
 
-
+    # remove self
     def _load_train_dataset(self, filename):
         x, y = GoLPredictor._load_dataset(filename)
+
+        print(x.shape, y.shape)
         train_size = 0.8
 
         X_train = np.pad(x[:int(train_size * x.shape[0]), :, :, np.newaxis], ((0,0),(1,1),(1,1),(0,0)), 'wrap')
@@ -39,8 +42,9 @@ class GoLPredictor:
     def _load_test_dataset(self, filename):
         x, y =  GoLPredictor._load_dataset(filename)
 
-        X_test = np.pad(x[:int(train_size * x.shape[0]), :, :, np.newaxis], ((0,0),(1,1),(1,1),(0,0)), 'wrap')
-        Y_test = y[:int(train_size * y.shape[0]), :, :, np.newaxis]
+        print(x.shape, y.shape)
+        X_test = np.pad(x[:int(x.shape[0]), :, :, np.newaxis], ((0,0),(1,1),(1,1),(0,0)), 'wrap')
+        Y_test = y[:int(y.shape[0]), :, :, np.newaxis]
 
         return X_test, Y_test
         
@@ -51,6 +55,7 @@ class GoLPredictor:
             with h5py.File(filename, 'r') as f:
                 x = np.array(f['x_train'])
                 y = np.array(f['y_train'])
+
         except IOError:
             print('dataset file wasn\'t find')
             return None, None
@@ -89,12 +94,24 @@ class GoLPredictor:
         )
 
         # return res
-    
+
+    @staticmethod
+    def _preprocess_filename(filename):
+        if os.path.splitext(filename)[-1] != 'h5':
+            return '.'.join([os.path.splitext(filename)[0], 'h5'])
+        else:
+            return filename
+
+
+    def _load_model(self, filename):
+        print('load model...')
+        self._model = load_model(GoLPredictor._preprocess_filename(filename))
+
     def save(self, filename):
-    
+        self._model.save(GoLPredictor._preprocess_filename(filename))
 
     def test(self, filename):
-        data = _load_test_dataset(filename)
+        data = self._load_test_dataset(filename)
 
         res = self._model.evaluate(*data)
 
@@ -130,7 +147,7 @@ def main():
     width, height, f_dataset, model_save, f_test, model_load = parse_cmd()
 
     if model_load:
-        golp = GoLPredictor(width, height, f_model, True)
+        golp = GoLPredictor(width, height, model_load, True)
     else:
         golp = GoLPredictor(width, height, f_dataset)
 
